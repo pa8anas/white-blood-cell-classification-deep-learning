@@ -1,5 +1,8 @@
 # Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 *.py[cod]
 *.so
 .venv/
@@ -15,13 +18,25 @@ env/
 .DS_Store
 Thumbs.db
 
-# Data and model artifacts
+# Data directories
 data/
+lymphoma/
+blood_cells_split/
+
+# Model artifacts / checkpoints
 outputs/
 checkpoints/
-*.pth
+*.h5
+*.keras
 *.pt
+*.pth
 *.ckpt
+
+# Archives / large deliverables
+archive.zip
+paradotea.zip
+*.tar.gz
+*.torrent
 
 # Generated results
 results/**/*.png
