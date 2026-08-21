@@ -13,12 +13,13 @@ The project compares three convolutional neural-network approaches:
 2. **VGG16** with ImageNet transfer learning
 3. **ResNet18** with ImageNet transfer learning
 
-The repository includes the original experiment notebook and paper together with reusable PyTorch modules for leakage-safe data handling, training, independent test-set evaluation, calibration analysis, ROC/Precision-Recall analysis, and Grad-CAM interpretation.
+The repository includes the original experiment notebook and project reports together with reusable PyTorch modules for leakage-safe data handling, training, independent test-set evaluation, calibration analysis, ROC/Precision-Recall analysis, and Grad-CAM interpretation.
 
 ## Main project files
 
 - [`deep_learning_bloodcells.ipynb`](deep_learning_bloodcells.ipynb) — complete experimental notebook
-- [`paper.pdf`](paper.pdf) — project report / paper
+- [`reports/white_blood_cell_classification_report_english.pdf`](reports/white_blood_cell_classification_report_english.pdf) — English project report
+- [`reports/white_blood_cell_classification_report_greek.pdf`](reports/white_blood_cell_classification_report_greek.pdf) — Greek project report
 - [`src/`](src/) — reusable training and evaluation code
 - [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) — methodology and evaluation decisions
 - [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) — recommended paper-oriented ablations and experiments
@@ -59,7 +60,9 @@ DATA_DIR/
 ├── requirements.txt
 ├── .gitignore
 ├── deep_learning_bloodcells.ipynb
-├── paper.pdf
+├── reports/
+│   ├── white_blood_cell_classification_report_english.pdf
+│   └── white_blood_cell_classification_report_greek.pdf
 ├── src/
 │   ├── __init__.py
 │   ├── data.py
