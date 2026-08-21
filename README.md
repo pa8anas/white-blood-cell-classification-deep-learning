@@ -13,7 +13,15 @@ The project compares three convolutional neural-network approaches:
 2. **VGG16** with ImageNet transfer learning
 3. **ResNet18** with ImageNet transfer learning
 
-The repository also includes model evaluation and interpretability utilities for confusion matrices, ROC and Precision-Recall curves, calibration analysis, t-SNE feature visualization, and Grad-CAM/Grad-CAM++ style explanations.
+The repository includes the original experiment notebook and paper together with reusable PyTorch modules for leakage-safe data handling, training, independent test-set evaluation, calibration analysis, ROC/Precision-Recall analysis, and Grad-CAM interpretation.
+
+## Main project files
+
+- [`deep_learning_bloodcells.ipynb`](deep_learning_bloodcells.ipynb) — complete experimental notebook
+- [`paper.pdf`](paper.pdf) — project report / paper
+- [`src/`](src/) — reusable training and evaluation code
+- [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) — methodology and evaluation decisions
+- [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) — recommended paper-oriented ablations and experiments
 
 ## Dataset
 
@@ -50,6 +58,8 @@ DATA_DIR/
 ├── LICENSE
 ├── requirements.txt
 ├── .gitignore
+├── deep_learning_bloodcells.ipynb
+├── paper.pdf
 ├── src/
 │   ├── __init__.py
 │   ├── data.py
@@ -57,7 +67,8 @@ DATA_DIR/
 │   ├── models.py
 │   ├── train.py
 │   ├── evaluate.py
-│   └── gradcam.py
+│   ├── gradcam.py
+│   └── check_duplicates.py
 ├── notebooks/
 │   └── README.md
 ├── results/
@@ -85,33 +96,32 @@ std  = [0.229, 0.224, 0.225]
 
 Training-time augmentation includes conservative geometric and photometric transformations. Validation and test images use a **deterministic** transform only.
 
-A key design decision in this repository is that the train/validation split is created **before** any class balancing or repeated sampling. This avoids the same original image being represented in both training and validation through duplicated paths.
+A key design decision in the reusable pipeline is that the train/validation split is created **before** any class balancing or repeated sampling. This avoids the same original image being represented in both training and validation through duplicated paths.
 
-The repository therefore uses augmentation **only for the training subset** and supports class balancing with `WeightedRandomSampler` rather than duplicating image paths before splitting.
+The `src/` pipeline therefore applies augmentation **only to the training subset** and supports class balancing with `WeightedRandomSampler` rather than duplicating image paths before splitting.
 
 ### Models
 
 #### Custom CNN
 
-Four convolutional blocks with increasing channel depth:
-
-```text
-3 → 32 → 64 → 128 → 256
-```
-
-Each block uses convolution, batch normalization, ReLU activation, and max pooling. The classifier contains fully connected layers with dropout.
+Four convolutional stages with increasing feature depth and a fully connected classifier with dropout.
 
 #### VGG16
 
-ImageNet-pretrained VGG16 with the final classifier replaced for four WBC classes. The last convolutional layers can be fine-tuned while earlier feature layers remain frozen.
+ImageNet-pretrained VGG16 with the final classifier replaced for the four WBC classes. Earlier convolutional features are frozen while the final convolutional block and classifier can be fine-tuned.
 
 #### ResNet18
 
-ImageNet-pretrained ResNet18 with the final fully connected layer replaced by a four-class classifier.
+ImageNet-pretrained ResNet18 with its final fully connected layer replaced by a four-class classifier.
 
-### Loss
+### Loss functions
 
-Both standard cross-entropy and focal loss are available. Focal loss can be useful when experiments intentionally use class-weighted training, but should be validated against an unweighted baseline.
+The reusable code supports both:
+
+- Cross-Entropy Loss
+- Focal Loss
+
+Cross-entropy is recommended as the baseline. Focal loss should be treated as an experimental choice and compared under otherwise identical settings.
 
 ## Installation
 
@@ -123,7 +133,7 @@ pip install -r requirements.txt
 
 ## Training
 
-Train the Custom CNN:
+Custom CNN:
 
 ```bash
 python -m src.train \
@@ -133,7 +143,7 @@ python -m src.train \
   --batch-size 16
 ```
 
-Train VGG16:
+VGG16:
 
 ```bash
 python -m src.train \
@@ -143,7 +153,7 @@ python -m src.train \
   --batch-size 16
 ```
 
-Train ResNet18:
+ResNet18:
 
 ```bash
 python -m src.train \
@@ -155,7 +165,7 @@ python -m src.train \
 
 Add `--balanced-sampling` to balance classes using only the training subset.
 
-To use focal loss:
+Use focal loss with:
 
 ```bash
 python -m src.train \
@@ -164,9 +174,7 @@ python -m src.train \
   --loss focal
 ```
 
-## Evaluation
-
-Evaluate a trained checkpoint on the independent `TEST` directory:
+## Independent test-set evaluation
 
 ```bash
 python -m src.evaluate \
@@ -183,11 +191,23 @@ Generated outputs include:
 - normalized confusion matrix
 - ROC curves
 - Precision-Recall curves
-- overall accuracy / macro precision / macro recall / macro F1
+- accuracy / macro precision / macro recall / macro F1
+- macro ROC-AUC and average precision
 - reliability diagram
 - Brier score
 - Expected Calibration Error (ECE)
 - confidence distribution
+
+## Data-leakage check
+
+Before reporting final results, check for exact duplicate files between TRAIN and TEST:
+
+```bash
+python -m src.check_duplicates \
+  --data-dir /path/to/dataset2-master/dataset2-master/images
+```
+
+This performs an exact MD5-based duplicate check. Near-duplicate images can still require perceptual or source-level analysis.
 
 ## Grad-CAM
 
@@ -199,44 +219,46 @@ python -m src.gradcam \
   --output results/resnet18/gradcam.png
 ```
 
-Grad-CAM visualizations are intended as **model interpretation aids**, not as proof that a model has learned clinically valid biological features.
+Grad-CAM visualizations are model-interpretation aids and should not by themselves be treated as proof of clinical or biological validity.
 
 ## Experimental results
 
-Earlier project experiments produced very high validation performance, with ResNet18 reaching approximately **99.95% validation accuracy** in one run. These values should be interpreted in the context of the exact split and preprocessing pipeline used for that experiment.
+Earlier project experiments produced very high validation performance, with ResNet18 reaching approximately **99.95% validation accuracy** in one run. These values should be interpreted in the context of the exact split and preprocessing pipeline used in that run.
 
-For reproducible reporting, this repository recommends:
+For paper-quality reporting, the repository recommends:
 
 - deterministic validation/test preprocessing;
 - no augmentation on validation or test data;
 - splitting original images before oversampling;
 - using the independent `TEST` folder only for final evaluation;
-- checking exact and near-duplicate images across splits;
+- checking exact and near duplicates across splits;
 - reporting macro F1 in addition to accuracy;
-- reporting uncertainty or repeated-split / cross-validation results where possible.
+- comparing augmentation and loss choices through controlled ablations;
+- reporting repeated-seed or cross-validation uncertainty where possible.
 
-Because microscopy datasets can contain images from related acquisition sources, patient- or slide-level splitting should be preferred whenever such metadata are available.
+If patient, slide, or acquisition-source metadata are available, group-aware splitting should be preferred over image-level random splitting.
 
 ## Paper-oriented analysis
 
-The repository supports figures commonly useful in a technical report or paper:
+Useful analyses for the report include:
 
+- class distribution
+- augmentation examples
 - learning curves
-- confusion matrices
-- per-class metrics
+- normalized confusion matrices
+- per-class precision / recall / F1
 - ROC and Precision-Recall curves
 - calibration analysis
-- t-SNE embeddings
+- t-SNE or UMAP embeddings
 - confidence/error analysis
 - Grad-CAM visualizations
+- model-comparison tables including parameter count and inference time
 
-Useful additional experiments are described in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
+See [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) for a structured experiment plan.
 
 ## Reproducibility
 
-Training accepts a random seed and uses stratified splitting. GPU acceleration is used automatically when CUDA is available.
-
-Example:
+Training accepts a fixed random seed and uses stratified splitting:
 
 ```bash
 python -m src.train \
@@ -245,9 +267,11 @@ python -m src.train \
   --seed 42
 ```
 
+CUDA is used automatically when available.
+
 ## Authors
 
-Academic project developed at the **University of Piraeus** for deep learning / artificial intelligence coursework.
+Academic deep-learning project developed at the **University of Piraeus**.
 
 ## License
 
